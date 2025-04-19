@@ -1,0 +1,131 @@
+/* General Styles */
+.container {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, #1f2937, #4f46e5);
+  padding: 1.5rem;
+  color: #ffffff;
+  font-family: sans-serif;
+}
+
+.breadcrumb {
+  font-size: 0.875rem;
+  color: #22d3ee;
+  margin-bottom: 1rem;
+}
+
+.header {
+  font-size: 1.875rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.card {
+  background-color: #2d3748;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.avatar {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 9999px;
+  margin-right: 1rem;
+}
+
+.account-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+  color: #cbd5e0;
+}
+
+.balance-container {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.balance-button {
+  color: #22d3ee;
+  text-decoration: underline;
+}
+
+.balance-value {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.icon-button {
+  background-color: #22d3ee;
+  color: #1a202c;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+}
+
+.icon-button:hover {
+  background-color: #0891b2;
+}
+
+.link-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.link-section img {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.5rem;
+}
+
+.section-header {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.section-description {
+  font-size: 0.875rem;
+  color: #cbd5e0;
+  margin-bottom: 1rem;
+}
+
+.form-group {
+  display: flex;
+  justify-content: space-between;
+}
+
+.form-group div {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group button {
+  background-color: #22d3ee;
+  color: #1a202c;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+}
+
+.form-group button:hover {
+  background-color: #0891b2;
+}
+
+.member-since {
+  font-size: 0.875rem;
+  color: #cbd5e0;
+}
