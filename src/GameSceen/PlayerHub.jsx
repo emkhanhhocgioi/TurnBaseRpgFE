@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import Profile from '../Hubcomponent/Profile';
 import MarketPlace from '../Hubcomponent/MarketPlace';
 import bgImage from '/public/assets/hubui/mainhubbackground.jpg';
+import WebsiteBalance from '../Hubcomponent/WebsiteBalance';
+import LevelSelecter from './LevelSelecter';
 import { useLocation } from 'react-router-dom';
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
@@ -143,7 +145,7 @@ useEffect(() => {
         <div style={style.sidebarSection}>
           <p style={style.sectionTitle}>MY ACCOUNT</p>
           <button onClick={() => setPage('profile')} style={{ ...style.sidebarBtn, ...(page === 'profile' && style.activeBtn) }}>Profile</button>
-          <button onClick={handleNavigate} style={style.sidebarBtn}>
+          <button onClick={() => setPage('level')} style={style.sidebarBtn}>
             Play RavenQuest
           </button>
 
@@ -161,7 +163,7 @@ useEffect(() => {
 
         <div style={style.sidebarSection}>
           <p style={style.sectionTitle}>$QUEST BALANCE</p>
-          <button style={style.sidebarBtn}>Website Balance</button>
+          <button onClick={() => setPage('websitebalance')} style={style.sidebarBtn}>Website Balance</button>
           <button style={style.sidebarBtn}>Passport Balance</button>
         </div>
 
@@ -175,8 +177,13 @@ useEffect(() => {
       </div>
 
       <div style={style.mainHub}>
+      {page === 'level' && userdata && (
+      <LevelSelecter style={{ marginTop: "10%" }} />
+      )}
+
       {page === 'profile' && userdata && <Profile userdata={userdata} />}
       {page === 'marketplace' && userdata && <MarketPlace userdata={userdata} />}
+      {page === 'websitebalance' && userdata && <WebsiteBalance userdata={userdata}/>}
 
       </div>
     </div>

@@ -26,7 +26,7 @@ const MarketPlace = () => {
       { name: "Shield of Light", type: "Armor", price: "7 MTK" },
       { name: "Potion Pack", type: "Consumable", price: "3 MTK" },
     ]);
-  }, []);
+  }, []);   
 
   return (
     <div style={style.container}>

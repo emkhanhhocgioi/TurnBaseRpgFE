@@ -6,7 +6,7 @@ import {
 	Route,
 	Navigate,
 } from "react-router-dom";
-import HelloWorld from "./GameSceen/HelloWord";
+
 
 import DungeonRun from "./GameSceen/DungeonRun";
 import SingInScreen from "./Auth/Login";
@@ -19,7 +19,7 @@ const App = () => {
 				<Routes>
 
 					<Route path="/" exact element={<PlayerHub/>} />
-					<Route path="/test" exact element={<HelloWorld />} />
+					
 					<Route path="/login" exact element={<SingInScreen/>} />
 					<Route path="/signup" exact element={<SingUpScreen/>} />
 					<Route path="/dashboard" exact element={<PlayerHub />} />

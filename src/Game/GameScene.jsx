@@ -144,13 +144,13 @@ class GameScene extends Phaser.Scene {
 
         // Update Player Text
         const playerStatsTexts = [
-            `Player HP: ${this.playerStat.hp}`,
-            `Player MP: ${this.playerStat.mp}`,
-            `Player DMG: ${this.playerStat.damage}`,
-            `Player Armor: ${this.playerStat.armor}`,
-            `Player Agility: ${this.playerStat.agility}`,
-            `Player Class: ${this.playerStat.characterClass}`,
-            `Player Level: ${this.playerStat.level}`
+            `Player HP: ${this.playerStat.character.hp}`,
+            `Player MP: ${this.playerStat.character.mp}`,
+            `Player DMG: ${this.playerStat.character.damage}`,
+            `Player Armor: ${this.playerStat.character.armor}`,
+            `Player Agility: ${this.playerStat.character.agility}`,
+            `Player Class: ${this.playerStat.character.characterClass}`,
+            `Player Level: ${this.playerStat.character.level}`
         ];
         this.playerTextElements.forEach((text, index) => {
             text.setText(playerStatsTexts[index]);
@@ -198,7 +198,7 @@ class GameScene extends Phaser.Scene {
             });
         }
     }
-    showDropTokenContainer(dropTokenJson) {
+    showDropTokenContainer(dropTokenJson,itemjson) {
         // Create a container at the center of the screen
         const container = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
     
@@ -211,7 +211,7 @@ class GameScene extends Phaser.Scene {
         
         let displayText = "";
         if (dropTokenJson.success === true) {
-            displayText = `Mob đã rơi ${dropTokenJson.amount} token`;
+            displayText = `Mob đã rơi ${dropTokenJson.amount} token và ${itemjson.name}`;
         } else {
             displayText = "Mob không rơi token";
         }
@@ -243,6 +243,24 @@ class GameScene extends Phaser.Scene {
         }
     }
     
+    createLoadingContainer() {
+        const container = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
+    
+        const background = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.6);
+        container.add(background);
+    
+        const loadingText = this.add.text(0, 0, "Đang thống kê dữ liệu...", {
+            fontSize: "22px",
+            color: "#000",
+            align: "center",
+            wordWrap: { width: 300 },
+        }).setOrigin(0.5);
+        container.add(loadingText);
+    
+        container.setDepth(11); // Để nổi hơn tất cả UI khác
+    
+        return container; // Trả về để tí nữa còn destroy
+    }
     
 
     async MobTurn() {
@@ -300,10 +318,19 @@ class GameScene extends Phaser.Scene {
                     break;
     
                 case 3: // die
-                    const dropTokenJson = await res.data.resFinal.DroptokenJson;
-                    this.showDropTokenContainer(dropTokenJson);
-                    this.mob.destroy();
+                    const loadingContainer = this.createLoadingContainer();
                     
+                    const dropTokenJson = await res.data.resFinal.DroptokenJson;
+                    const itemjson = await res.data.resFinal.item;
+                    this.showDropTokenContainer(dropTokenJson,itemjson);
+                    this.mob.destroy();
+                     // Giả lập 2 giây delay để "thống kê dữ liệu"
+
+                    this.time.delayedCall(2000, () => {
+                        loadingContainer.destroy(); // Xóa container loading
+                        this.showDropTokenContainer(dropTokenJson, itemjson); // Show container phần thưởng
+                        this.mob.destroy();
+                    });
                     // Trì hoãn kết thúc game sau khi thông báo đã được đóng
                    
                     break;

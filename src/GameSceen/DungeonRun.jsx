@@ -21,7 +21,7 @@ const DungeonRun = () => {
   useEffect(() => {
     MobGenerate();
     console.log(userCharacter);  // Make sure userCharacter is logged
-    alert(isInFight)
+ 
   }, []);
 
   useEffect(() => {
@@ -173,27 +173,28 @@ const DungeonRun = () => {
 
     return (
       <div
-        style={{
-          position: "absolute",
-          top: "-120px",
-          left: "-50px",
-          backgroundColor: "#fff",
-          color: "#000",
-          padding: "6px",
-          border: "1px solid #333",
-          borderRadius: "4px",
-          fontSize: "12px",
-          width: "140px",
-          zIndex: 100,
-          boxShadow: "2px 2px 8px rgba(0,0,0,0.2)",
-        }}
+      style={{
+        position: "absolute",
+        top: "-120px",
+        left: "-50px",
+        backgroundColor: "#fff",
+        color: "#000",
+        padding: "6px",
+        border: "1px solid #333",
+        borderRadius: "4px",
+        fontSize: "12px",
+        width: "140px",
+        zIndex: 100,
+        boxShadow: "2px 2px 8px rgba(0,0,0,0.2)",
+      }}
       >
-        <strong>{mob.mobName}</strong> (Lvl {mob.mobLevel})<br />
-        ❤️ HP: {mob.hp}<br />
-        ⚔️ DMG: {mob.dmg}<br />
-        🛡 Armor: {mob.armor}<br />
-        🌀 Agi: {mob.agility}<br />
-        📦 Type: {mob.mobType}
+      <strong>{mob.name}</strong> (Lvl {mob.level})<br />
+      ❤️ HP: {mob.hp}/{mob.maxHp}<br />
+      ⚔️ DMG: {mob.dmg}<br />
+      🛡 Armor: {mob.armor}<br />
+      🌀 Agi: {mob.agility}<br />
+      📦 Type: {mob.type}<br />
+      ⭐ XP: {mob.xp}
       </div>
     );
   };

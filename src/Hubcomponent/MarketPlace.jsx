@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-
+import { useLocation } from "react-router-dom";
+import { ethers } from "ethers";
 const MarketPlace = () => {
+  const location = useLocation();
+  const { userdata } = location.state || {};
   const [userbalance, setUserbalance] = useState(0);
   const [items, setItems] = useState([]);
 
   useEffect(() => {
     const getUserBalance = async () => {
-      const userwallet = "0xdd51C61689dbfbAAE324430367961B27E419da90";
+      const userwallet = userdata.walletAddress;
       try {
         const response = await axios.post("http://localhost:3000/api/getTokenBalanceOfUser", {
           address: userwallet,
@@ -27,7 +30,58 @@ const MarketPlace = () => {
       { name: "Potion Pack", type: "Consumable", price: "3 MTK" },
     ]);
   }, []);
+  const getListeditem = async () => {
+    try {
+      const resdata = await axios.get("http://localhost:3000/api/getallitem");
+      const rawItems = resdata.data.data;
+  
+      // Convert mảng thành object có key rõ ràng
+      const formattedItems = rawItems.map(itemArr => ({
+        listedid: itemArr[0],
+        seller: itemArr[1],
+        itemname: itemArr[2],
+        desc: itemArr[3],
+        itemid: itemArr[4],
+        price: `${(Number(itemArr[5]) / 1e18).toFixed(2)} MTK`, // convert wei → MTK
+        issold: itemArr[6]
+      }));
+      console.log(formattedItems)
+      setItems(formattedItems);
+    } catch (error) {
+      console.error("Error fetching listed items:", error);
+    }
+  };
+  
+  const buyItemListed = async (productid,seller,itemid) => {
+    try {
+      const buyer = userdata.walletAddress;
+      const data = {
+        productid: productid,
+        buyer: buyer,
+        seller:seller,
+        itemId:itemid
+      };
+      const resdata = await axios.post("http://localhost:3000/api/buylisteditem", {data:data}, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
+      if (resdata.status === 200) {
+        alert("Item purchased successfully!");
+        getListeditem(); // Refresh the listed items after purchase
+      } else {
+        alert("Failed to purchase the item. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error purchasing item:", error);
+      alert("An error occurred while purchasing the item.");
+    }
+  };
+
+  useEffect(() => {
+    getListeditem();
+  }, []);
   return (
     <div style={style.container}>
       <h1 style={style.welcomeText}>Welcome To DDT Marketplace</h1>
@@ -47,16 +101,29 @@ const MarketPlace = () => {
                 <th style={style.tableHeader}>Item</th>
                 <th style={style.tableHeader}>Type</th>
                 <th style={style.tableHeader}>Price</th>
+                <th style={style.tableHeader}>Seller</th>
+                <th style={style.tableHeader}>Sold</th>
+                <th style={style.tableHeader}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item, index) => (
+            {items
+              .filter((item) => userdata?.walletAddress !== item.seller)
+              .map((item, index) => (
                 <tr key={index}>
-                  <td style={style.tableCell}>{item.name}</td>
-                  <td style={style.tableCell}>{item.type}</td>
-                  <td style={style.tableCell}>{item.price}</td>
-                </tr>
-              ))}
+                <td style={style.tableCell}>{item.itemname}</td>
+                <td style={style.tableCell}>{item.itemid}</td>
+                <td style={style.tableCell}>{item.desc}</td>
+                <td style={style.tableCell}>{item.price}</td>
+                <td style={style.tableCell}>{item.seller}</td>
+                <td style={style.tableCell}>{item.issold ? "Yes" : "No"}</td>
+                <td style={style.tableCell}>
+                  <button onClick={() => {buyItemListed(item.listedid,item.seller,item.itemid)}} style={style.secondaryButton}>Buy</button>
+                </td>
+              </tr>
+            ))}
+
+              
             </tbody>
           </table>
         </div>
