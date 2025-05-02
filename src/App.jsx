@@ -12,6 +12,7 @@ import DungeonRun from "./GameSceen/DungeonRun";
 import SingInScreen from "./Auth/Login";
 import SingUpScreen from "./Auth/Register";
 import PlayerHub from "./GameSceen/PlayerHub";
+import Admin from "./admin/admin";
 const App = () => {
 	return (
 		<div>
@@ -19,7 +20,7 @@ const App = () => {
 				<Routes>
 
 					<Route path="/" exact element={<PlayerHub/>} />
-					
+					<Route path="/ad" exact element={<Admin/>} />
 					<Route path="/login" exact element={<SingInScreen/>} />
 					<Route path="/signup" exact element={<SingUpScreen/>} />
 					<Route path="/dashboard" exact element={<PlayerHub />} />

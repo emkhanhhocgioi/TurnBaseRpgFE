@@ -7,9 +7,12 @@ const WebsiteBalance = () => {
     const location = useLocation();
     const { userdata } = location.state || {};
     const [transfervalue, setTransferValue] = useState("");
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const withdrawValue = 100;
-    const contractaddress = '0x42D7881c94781A284f28B31120FB7eEC217d1DfA';
+    const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+    const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+    const [isExchangeOfferModalOpen, setIsExchangeOfferModalOpen] = useState(false);
+    const [withdrawAmount, setWithdrawAmount] = useState("");
+    const [exchangeOfferAmount, setExchangeOfferAmount] = useState("");
+    const contractaddress = '0x25a2CB25D863801E11f802e164744C89b3542041';
 
     const transactions = [
         { id: 1, type: "Deposit", amount: "100", date: "2025-04-28" },
@@ -18,6 +21,7 @@ const WebsiteBalance = () => {
     ];
 
     const [userbalance, setUserbalance] = useState(0);
+    const [isPendingTx, setIsPendingTx] = useState(false);
 
     useEffect(() => {
         const getUserBalance = async () => {
@@ -39,113 +43,77 @@ const WebsiteBalance = () => {
         }
     }, [userdata]);
 
-  
-    
-
     async function WithDrawBDCToWalllet() {
-        // Địa chỉ hợp đồng BidiTOKEN
         const CONTRACT_ADDRESS = contractaddress;
-        
-        // ABI khớp với hợp đồng thực tế
         const CONTRACT_ABI = [
-            // Hàm WithDrawFromWallet đúng với hợp đồng
             "function WithDrawFromWallet(address from, address to, uint256 amount) public",
             "function balanceOf(address account) view returns (uint256)",
             "function decimals() view returns (uint8)"
         ];
     
-        // Lấy địa chỉ ví đích từ dữ liệu người dùng
         const walletAddress = userdata.walletAddress;
     
-        // Kiểm tra xem có MetaMask hoặc ví web3 khác không
         if (!window.ethereum) {
             alert("Cần cài đặt MetaMask hoặc ví web3 khác. Vui lòng cài đặt và kết nối ví của bạn.");
             return;
         }
     
         try {
-            // Yêu cầu kết nối ví
             await window.ethereum.request({ method: "eth_requestAccounts" });
     
-            const provider = new ethers.BrowserProvider(window.ethereum); // ethers v6
+            const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             const currentAddress = await signer.getAddress();
     
-            // Kiểm tra địa chỉ
             if (!ethers.isAddress(walletAddress)) {
                 alert("Địa chỉ ví đích không hợp lệ!");
                 return;
             }
     
-            // Tạo instance của hợp đồng
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-            
-            // Mặc định số thập phân là 18 (phổ biến cho ERC20)
-            let decimals = 18;
-            try {
-                const decimalsResult = await contract.decimals();
-                decimals = Number(decimalsResult);
-            } catch (error) {
-                console.warn("Không thể lấy được số thập phân của token, mặc định là 18:", error);
-            }
-            
-            // Lấy số dư hiện tại của người dùng
+    
             let balance;
             try {
                 balance = await contract.balanceOf(walletAddress);
-                console.log(`Số dư hiện tại: ${ethers.formatUnits(balance)} token BIDI.`);
+                console.log(`Số dư hiện tại (raw): ${balance.toString()} token BIDI.`);
             } catch (error) {
                 console.warn("Không thể kiểm tra số dư:", error);
                 return;
             }
     
-            // Kiểm tra nếu số dư bằng 0
             if (balance === 0n) {
                 alert("Số dư của bạn là 0. Không thể thực hiện rút.");
                 return;
             }
     
-            // Chuyển đổi số dư thành đơn vị nhỏ nhất
             const withdrawAmount = balance;
     
             console.log("Địa chỉ ví nhận:", walletAddress);
             console.log("Địa chỉ người gửi:", currentAddress);
-            console.log("Số lượng chuyển:", ethers.formatUnits(withdrawAmount, decimals), "token BIDI");
-            console.log("Số lượng chuyển (đơn vị nhỏ nhất):", withdrawAmount.toString());
+            console.log("Số lượng chuyển (raw):", withdrawAmount.toString());
     
-            // Hiển thị thông báo đang xử lý
             const pendingMsg = document.getElementById('pendingTxMessage');
             if (pendingMsg) pendingMsg.style.display = 'block';
     
-            // GỬI GIAO DỊCH - GIỮ NGUYÊN THỨ TỰ THAM SỐ KHỚP VỚI HỢP ĐỒNG
-            // WithDrawFromWallet(address from, address to, uint256 amount)
             const tx = await contract.WithDrawFromWallet(
-                walletAddress,  // from - địa chỉ người gửi (tài khoản hiện tại)
-                currentAddress,   // to - địa chỉ nhận token
-                withdrawAmount,  // amount - số lượng token (toàn bộ số dư)
-                {
-                    gasLimit: 300000 // Gas limit rõ ràng để tránh lỗi ước tính
-                }
+                walletAddress,
+                currentAddress,
+                withdrawAmount,
+             
             );
     
             console.log("Giao dịch đã gửi:", tx.hash);
-            
-            // Đợi xác nhận
+    
             const receipt = await tx.wait();
             console.log("Giao dịch đã được xác nhận:", receipt);
     
-            // Ẩn thông báo đang xử lý
             if (pendingMsg) pendingMsg.style.display = 'none';
-            
-            alert(`Chuyển ${ethers.formatUnits(withdrawAmount, decimals)} token BIDI thành công!`);
-            
-            // Tùy chọn làm mới giao diện hiển thị số dư
-            // refreshBalanceDisplay();
+    
+            alert(`Chuyển token BIDI thành công! Số lượng (raw): ${withdrawAmount.toString()}`);
     
         } catch (error) {
             console.error("Giao dịch thất bại:", error);
-            
-            // Xử lý lỗi nâng cao
+    
             let errorMessage;
             if (error.data) {
                 errorMessage = `Chi tiết lỗi: ${error.data}`;
@@ -154,13 +122,10 @@ const WebsiteBalance = () => {
             } else {
                 errorMessage = error?.reason || error?.message || "Lỗi không xác định";
             }
-            
-            // Xử lý lỗi "Insufficient balance" từ hợp đồng
+    
             if (errorMessage.includes("Insufficient balance")) {
                 alert("Số dư không đủ để thực hiện giao dịch.");
-            }
-            // Xử lý các lỗi chung
-            else if (errorMessage.includes("gas required exceeds allowance") || 
+            } else if (errorMessage.includes("gas required exceeds allowance") || 
                 errorMessage.includes("insufficient funds")) {
                 alert("Giao dịch thất bại: Bạn không có đủ ETH để trả phí gas.");
             } else if (errorMessage.includes("execution reverted")) {
@@ -170,12 +135,12 @@ const WebsiteBalance = () => {
             } else {
                 alert("Chuyển token thất bại! Lý do: " + errorMessage);
             }
-            
-            // Ẩn thông báo đang xử lý
+    
             const pendingMsg = document.getElementById('pendingTxMessage');
             if (pendingMsg) pendingMsg.style.display = 'none';
         }
     }
+    
 
 
     
@@ -194,81 +159,112 @@ async function connectWallet() {
         alert("Hãy cài đặt Metamask!");
     }
 }
-
-// Hàm mua token
-async function buyToken(transfervalue) {
-    const CONTRACT_ADDRESS = contractaddress;
-    const CONTRACT_ABI = [
-        "function buyMoreTokken(uint256 amount, address account) public payable"
-    ];
-    const walletAddress = userdata.walletAddress; // Lấy địa chỉ ví từ localStorage
-
-    if (!walletAddress) {
-        return alert("Vui lòng kết nối ví trước.");
+    
+    // Hàm kết nối ví
+    async function connectWallet() {
+        if (window.ethereum) {
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                localStorage.setItem('metamask', accounts[0]);
+                alert('Kết nối ví thành công!');
+            } catch (error) {
+                console.error("Lỗi kết nối ví:", error);
+                alert("Không thể kết nối ví.");
+            }
+        } else {
+            alert("Hãy cài đặt Metamask!");
+        }
     }
 
-    if (!window.ethereum) return alert("Hãy kết nối ví trước!");
-
-    try {
-        // Nếu ví chưa kết nối, yêu cầu kết nối
-        if (!walletAddress) {
-            await connectWallet(); // Kết nối ví nếu chưa có tài khoản
-            return; // Dừng nếu kết nối ví thất bại
+    // Hàm mua token
+    async function buyToken(transfervalue) {
+        if (!transfervalue || parseInt(transfervalue) <= 0) {
+            alert("Please enter a valid amount to deposit");
+            return;
         }
 
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
+        setIsPendingTx(true);
         
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        const CONTRACT_ADDRESS = contractaddress;
+        const CONTRACT_ABI = [
+            "function buyMoreTokken(uint256 amount, address account) public payable"
+        ];
+        const walletAddress = userdata.walletAddress; // Lấy địa chỉ ví từ localStorage
 
-        const pricePerToken = ethers.parseEther("0.005"); // Giá mỗi token là 0.005 Ether
-        const totalPrice = pricePerToken * BigInt(transfervalue); // Tổng giá trị cần thanh toán
+        if (!walletAddress) {
+            setIsPendingTx(false);
+            return alert("Vui lòng kết nối ví trước.");
+        }
 
-        // Gửi giao dịch mua token
-        const tx = await contract.buyMoreTokken(
-            BigInt(transfervalue), // Số lượng token muốn mua
-            walletAddress,          // Địa chỉ ví của người mua
-            { value: totalPrice }   // Số Ether cần trả
-        );
+        if (!window.ethereum) {
+            setIsPendingTx(false);
+            return alert("Hãy kết nối ví trước!");
+        }
 
-        await tx.wait(); // Chờ giao dịch hoàn thành
+        try {
+            // Nếu ví chưa kết nối, yêu cầu kết nối
+            if (!walletAddress) {
+                await connectWallet(); // Kết nối ví nếu chưa có tài khoản
+                setIsPendingTx(false);
+                return; // Dừng nếu kết nối ví thất bại
+            }
 
-        alert("Mua token thành công!");
-    } catch (error) {
-        console.error("Giao dịch thất bại:", error);
-        alert("Mua token thất bại!");
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+            const pricePerToken = ethers.parseEther("0.00005"); // Giá mỗi token là 0.00005 Ether
+            const totalPrice = pricePerToken * BigInt(transfervalue); // Tổng giá trị cần thanh toán
+
+            // Gửi giao dịch mua token
+            const tx = await contract.buyMoreTokken(
+                BigInt(transfervalue), // Số lượng token muốn mua
+                walletAddress,          // Địa chỉ ví của người mua
+                { value: totalPrice }   // Số Ether cần trả
+            );
+
+            await tx.wait(); // Chờ giao dịch hoàn thành
+
+            setIsPendingTx(false);
+            setIsDepositModalOpen(false);
+            alert("Mua token thành công!");
+        } catch (error) {
+            console.error("Giao dịch thất bại:", error);
+            setIsPendingTx(false);
+            alert("Mua token thất bại: " + (error.message || "Lỗi không xác định"));
+        }
     }
-}
 
-async function CreateWithdrawOffer () {
-    const amount = 10;
-    const CONTRACT_ADDRESS = contractaddress;
-    const CONTRACT_ABI = [
-        "function CreateExchangeOffer(uint256 amount,address from) public",
-        "function balanceOf(address account) view returns (uint256)"
-    ];
+    async function CreateWithdrawOffer () {
+        const amount = 1;
+        const CONTRACT_ADDRESS = contractaddress;
+        const CONTRACT_ABI = [
+            "function CreateExchangeOffer(uint256 amount,address from) public",
+            "function balanceOf(address account) view returns (uint256)"
+        ];
+        
     
-
-    const walletAddress = userdata.walletAddress;
-    if (!walletAddress) return alert("Vui lòng kết nối ví trước.");
-    if (!window.ethereum) return alert("Hãy kết nối ví trước!");
-
-    try {
-        
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-        const tx = await contract.CreateExchangeOffer(amount,walletAddress);
-        await tx.wait();
-
-        alert("Tạo yêu cầu rút token thành công!");
-    } catch (error) {
-        console.error("Giao dịch thất bại:", error);
-        alert("Giao dịch thất bại!");
+        const walletAddress = userdata.walletAddress;
+        if (!walletAddress) return alert("Vui lòng kết nối ví trước.");
+        if (!window.ethereum) return alert("Hãy kết nối ví trước!");
+    
+        try {
+            
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            
+    
+            const tx = await contract.CreateExchangeOffer(amount, walletAddress);
+            await tx.wait();
+    
+            alert("Tạo yêu cầu rút token thành công!");
+        } catch (error) {
+            console.error("Giao dịch thất bại:", error);
+            alert("Giao dịch thất bại!");
+        }
     }
-}
-
 
     return (
         <>
@@ -292,22 +288,21 @@ async function CreateWithdrawOffer () {
                         <span style={styles.tokenAmount}>{userbalance} BDC</span>
                     </div>
                     <div style={styles.balanceActions}>
-                        <button style={styles.depositButton} onClick={() => setIsModalOpen(true)}>
+                        <button style={styles.depositButton} onClick={() => setIsDepositModalOpen(true)}>
                             Deposit to Game
                         </button>
                         <button
-                            onClick={WithDrawBDCToWalllet}
+                            onClick={() => setIsWithdrawModalOpen(true)}
                             style={styles.withdrawButton}
                         >
                             Withdraw to Wallet
                         </button>
                         <button
-                            onClick={CreateWithdrawOffer}
+                            onClick={() => setIsExchangeOfferModalOpen(true)}
                             style={styles.withdrawButton}
                         >
                             Create Withdraw offer
                         </button>
-                        
                     </div>
                 </div>
             </div>
@@ -328,8 +323,19 @@ async function CreateWithdrawOffer () {
                 </div>
             </div>
 
-            {/* Modal */}
-            {isModalOpen && (
+            {/* Pending Transaction Overlay */}
+            {isPendingTx && (
+                <div style={styles.pendingOverlay}>
+                    <div style={styles.pendingMessage} id="pendingTxMessage">
+                        <div style={styles.spinner}></div>
+                        <p>Transaction in progress...</p>
+                        <p>Please wait and do not close this window</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Deposit Modal */}
+            {isDepositModalOpen && (
                 <div style={styles.modalOverlay}>
                     <div style={styles.modalContent}>
                         <h2>Deposit Tokens</h2>
@@ -340,19 +346,90 @@ async function CreateWithdrawOffer () {
                             placeholder="Enter token amount"
                             style={styles.inputField}
                         />
+                        <div style={styles.modalInfo}>
+                            <p>Rate: 1 token = 0.00005 ETH</p>
+                            <p>Total cost: {transfervalue ? (parseFloat(transfervalue) * 0.00005).toFixed(6) : "0"} ETH</p>
+                        </div>
                         <div style={styles.modalButtons}>
                             <button
                                 style={styles.confirmButton}
-                                onClick={() => {
-                                    buyToken(transfervalue);
-                                    setIsModalOpen(false);
-                                }}
+                                onClick={() => buyToken(transfervalue)}
                             >
                                 Confirm
                             </button>
                             <button
                                 style={styles.cancelButton}
-                                onClick={() => setIsModalOpen(false)}
+                                onClick={() => setIsDepositModalOpen(false)}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Withdraw Modal */}
+            {isWithdrawModalOpen && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <h2>Withdraw Tokens</h2>
+                        <input
+                            type="number"
+                            value={withdrawAmount}
+                            onChange={(e) => setWithdrawAmount(e.target.value)}
+                            placeholder="Enter token amount to withdraw"
+                            style={styles.inputField}
+                        />
+                        <div style={styles.modalInfo}>
+                            <p>Available balance: {userbalance} BDC</p>
+                            <p>Tokens will be sent to your connected wallet</p>
+                            <p>Wallet: {userdata?.walletAddress.slice(0, 6)}...{userdata?.walletAddress.slice(-4)}</p>
+                        </div>
+                        <div style={styles.modalButtons}>
+                            <button
+                                style={styles.confirmButton}
+                                onClick={WithDrawBDCToWalllet}
+                            >
+                                Confirm
+                            </button>
+                            <button
+                                style={styles.cancelButton}
+                                onClick={() => setIsWithdrawModalOpen(false)}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Exchange Offer Modal */}
+            {isExchangeOfferModalOpen && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <h2>Create Withdraw Offer</h2>
+                        <input
+                            type="number"
+                            value={exchangeOfferAmount}
+                            onChange={(e) => setExchangeOfferAmount(e.target.value)}
+                            placeholder="Enter token amount for exchange"
+                            style={styles.inputField}
+                        />
+                        <div style={styles.modalInfo}>
+                            <p>Available balance: {userbalance} BDC</p>
+                            <p>Creating an exchange offer will initiate a withdrawal request</p>
+                            <p>This will be processed by administrators</p>
+                        </div>
+                        <div style={styles.modalButtons}>
+                            <button
+                                style={styles.confirmButton}
+                                onClick={CreateWithdrawOffer}
+                            >
+                                Confirm
+                            </button>
+                            <button
+                                style={styles.cancelButton}
+                                onClick={() => setIsExchangeOfferModalOpen(false)}
                             >
                                 Cancel
                             </button>
@@ -365,9 +442,6 @@ async function CreateWithdrawOffer () {
 };
 
 export default WebsiteBalance;
-
-
-
 
 const styles = {
     websiteBalanceContainer: {
@@ -507,11 +581,17 @@ const styles = {
         backgroundColor: "#1c1a2e",
         padding: "30px",
         borderRadius: "10px",
-        width: "300px",
+        width: "350px",
         display: "flex",
         flexDirection: "column",
         gap: "15px",
         color: "white",
+    },
+    modalInfo: {
+        backgroundColor: "#2b2a3d",
+        padding: "12px",
+        borderRadius: "5px",
+        fontSize: "14px",
     },
     inputField: {
         padding: "10px",
@@ -543,5 +623,34 @@ const styles = {
         borderRadius: "5px",
         cursor: "pointer",
         flex: 1,
+    },
+    pendingOverlay: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 2000,
+    },
+    pendingMessage: {
+        backgroundColor: "#1c1a2e",
+        padding: "30px",
+        borderRadius: "10px",
+        textAlign: "center",
+        color: "white",
+        maxWidth: "400px",
+    },
+    spinner: {
+        border: "5px solid rgba(255, 255, 255, 0.3)",
+        borderTop: "5px solid #4caf50",
+        borderRadius: "50%",
+        width: "40px",
+        height: "40px",
+        margin: "0 auto 20px auto",
+        animation: "spin 1s linear infinite",
     },
 };

@@ -42,7 +42,7 @@ const MarketPlace = () => {
         itemname: itemArr[2],
         desc: itemArr[3],
         itemid: itemArr[4],
-        price: `${(Number(itemArr[5]) / 1e18).toFixed(2)} MTK`, // convert wei → MTK
+        price: `${itemArr[5]} MTK`, // convert wei → MTK
         issold: itemArr[6]
       }));
       console.log(formattedItems)
