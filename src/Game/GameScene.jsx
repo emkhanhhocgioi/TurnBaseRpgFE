@@ -2,11 +2,12 @@ import Phaser from "phaser";
 import axios from "axios";
 
 class GameScene extends Phaser.Scene {
-    constructor({ mobdata, playerdata ,userdata,onFightEnd }) {
+    constructor({ mobdata, playerdata, userdata, onFightEnd }) {
         super({ key: "GameScene" });
 
         this.mobstat = mobdata.mobdata;
-        this.playerStat = playerdata.player;
+        this.playerStat = playerdata;
+      
         this.Userdata = userdata.userdata;
         this.onFightEnd = onFightEnd; // Store the onFightEnd callback
         console.log("Mob Data:", this.mobstat);
@@ -22,6 +23,10 @@ class GameScene extends Phaser.Scene {
             skillCooldown: 5,
             skillDescription: "A basic attack that deals damage to the enemy.",
         };
+        
+        // Set game dimensions
+        this.gameWidth = 600;
+        this.gameHeight = 800;
     }
 
     preload() {
@@ -29,17 +34,21 @@ class GameScene extends Phaser.Scene {
         this.load.image("bg", "public/assets/bg.jpg");
         this.load.spritesheet("sheet", "public/assets/hero.png", { frameWidth: 100, frameHeight: 100 });
         this.load.spritesheet("attackSheet", "public/assets/sprite/heroattack.png", { frameWidth: 100, frameHeight: 100 });
-        this.load.image("attack", "public/assets/slkillcard/attack.png");
+        this.load.image("attack", "public/assets/slkillcard/attack.png",{ frameWidth: 100, frameHeight: 100 });
+        this.load.image("heal","public/assets/slkillcard/healing.png",{ frameWidth: 100, frameHeight: 100 });
+        this.load.image("fireball","public/assets/slkillcard/fireball.png",{ frameWidth: 100, frameHeight: 100 })
         this.load.spritesheet("mobSheet", "public/assets/mobs/orc.png", { frameWidth: 100, frameHeight: 100 });
         this.load.spritesheet("mobAttack", "public/assets/sprite/orcattack.png", { frameWidth: 100, frameHeight: 100 });
     }
 
     create() {
-        this.add.image(250, 250, "bg").setOrigin(0.5);
+        // Center background within 600x800 screen
+        this.add.image(this.gameWidth / 2, this.gameHeight / 2, "bg")
+            .setDisplaySize(this.gameWidth, this.gameHeight);
 
-        // Player sprite
-        this.player = this.add.sprite(200, 400, "sheet").setOrigin(0.5);
-        this.player.setScale(1000 / 220, 1000 / 220);
+        // Position player and mob closer together for smaller screen
+        this.player = this.add.sprite(150, 500, "sheet").setOrigin(0.5);
+        this.player.setScale(2.5); // Adjusted scale for smaller screen
 
         this.anims.create({
             key: "idle",
@@ -55,9 +64,9 @@ class GameScene extends Phaser.Scene {
             repeat: 0,
         });
 
-        // Mob sprite
-        this.mob = this.add.sprite(800, 400, "mobSheet").setOrigin(0.5);
-        this.mob.setScale(1000 / 220, 1000 / 220);
+        // Mob sprite - positioned on right side but closer
+        this.mob = this.add.sprite(450, 500, "mobSheet").setOrigin(0.5);
+        this.mob.setScale(2.5); // Adjusted scale for smaller screen
         this.mob.flipX = true;
 
         this.anims.create({
@@ -77,12 +86,32 @@ class GameScene extends Phaser.Scene {
         this.player.play("idle");
         this.mob.play("mobidle");
 
-        // Attack Card UI
-        this.attackCard = this.add.image(500, 600, "attack").setOrigin(0.5);
-        this.attackCard.setScale(30 / 200, 30 / 200);
+        // Attack Card UI - moved to bottom center
+        this.attackCard = this.add.image(this.gameWidth / 2, this.gameHeight - 75, "attack").setOrigin(0.5);
+        this.attackCard.setScale(0.09);
         this.attackCard.setInteractive();
         this.attackCard.on("pointerdown", () => {
             this.action = "attack";
+            this.PlayerTurn(this.action);
+        });
+
+        // Healing Card UI 
+        this.healCard = this.add.image(this.gameWidth / 3, this.gameHeight - 75, "heal").setOrigin(0.5);
+        this.healCard.setScale(0.09);
+        this.healCard.setInteractive();
+        this.healCard.on("pointerdown", () => {
+            this.action = "heal";
+            this.PlayerTurn(this.action);
+        });
+
+        // FireBall Card UI - positioned close to the right of attack UI
+        this.fireballCard = this.add.image(this.gameWidth / 2 + 105, this.gameHeight - 75, "fireball").setOrigin(0.5);
+        this.fireballCard.setScale(0.09);
+        this.fireballCard.setInteractive();
+        this.fireballCard.on("pointerdown", () => {
+
+
+            this.action = "fireball";
             this.PlayerTurn(this.action);
         });
 
@@ -92,39 +121,39 @@ class GameScene extends Phaser.Scene {
     }
 
     createStatsUI() {
-        // Mob UI Container
-        this.mobinfo = this.add.container(850, 100);
-        const mobInfoImage = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.5);
-        this.mobinfo.add(mobInfoImage);
-
-        const mobTextStyle = { fontSize: "20px", color: "#000", align: "center" };
-        this.mobTextElements = [];
-
-        const mobStats = 6;
-        const lineSpacing = 24;
-        const startY = -(mobStats * lineSpacing) / 2 + lineSpacing / 2;
-
-        for (let i = 0; i < mobStats; i++) {
-            const text = this.add.text(0, startY + i * lineSpacing, "", mobTextStyle).setOrigin(0.5);
-            this.mobinfo.add(text);
-            this.mobTextElements.push(text);
-        }
-
-        // Player UI Container
-        this.playerinfo = this.add.container(200, 100);
-        const playerInfoImage = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.5);
+        // Player UI Container - top left
+        this.playerinfo = this.add.container(150, 120);
+        const playerInfoImage = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.4);
         this.playerinfo.add(playerInfoImage);
 
-        const playerTextStyle = { fontSize: "20px", color: "#000", align: "center" };
+        const playerTextStyle = { fontSize: "16px", color: "#000", align: "center" };
         this.playerTextElements = [];
 
         const playerStats = 7;
+        const lineSpacing = 20;
         const playerStartY = -(playerStats * lineSpacing) / 2 + lineSpacing / 2;
 
         for (let i = 0; i < playerStats; i++) {
             const text = this.add.text(0, playerStartY + i * lineSpacing, "", playerTextStyle).setOrigin(0.5);
             this.playerinfo.add(text);
             this.playerTextElements.push(text);
+        }
+
+        // Mob UI Container - top right
+        this.mobinfo = this.add.container(450, 120);
+        const mobInfoImage = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.4);
+        this.mobinfo.add(mobInfoImage);
+
+        const mobTextStyle = { fontSize: "16px", color: "#000", align: "center" };
+        this.mobTextElements = [];
+
+        const mobStats = 6;
+        const startY = -(mobStats * lineSpacing) / 2 + lineSpacing / 2;
+
+        for (let i = 0; i < mobStats; i++) {
+            const text = this.add.text(0, startY + i * lineSpacing, "", mobTextStyle).setOrigin(0.5);
+            this.mobinfo.add(text);
+            this.mobTextElements.push(text);
         }
     }
 
@@ -144,13 +173,13 @@ class GameScene extends Phaser.Scene {
 
         // Update Player Text
         const playerStatsTexts = [
-            `Player HP: ${this.playerStat.character.hp}`,
-            `Player MP: ${this.playerStat.character.mp}`,
-            `Player DMG: ${this.playerStat.character.damage}`,
-            `Player Armor: ${this.playerStat.character.armor}`,
-            `Player Agility: ${this.playerStat.character.agility}`,
-            `Player Class: ${this.playerStat.character.characterClass}`,
-            `Player Level: ${this.playerStat.character.level}`
+            `Player HP: ${this.playerStat.player.hp}`,
+            `Player MP: ${this.playerStat.player.mp}`,
+            `Player DMG: ${this.playerStat.player.damage}`,
+            `Player Armor: ${this.playerStat.player.armor}`,
+            `Player Agility: ${this.playerStat.player.agility}`,
+            `Player Class: ${this.playerStat.player.characterClass}`,
+            `Player Level: ${this.playerStat.player.level}`
         ];
         this.playerTextElements.forEach((text, index) => {
             text.setText(playerStatsTexts[index]);
@@ -171,8 +200,8 @@ class GameScene extends Phaser.Scene {
 
             this.tweens.add({
                 targets: this.player,
-                x: this.mob.x - 100,
-                duration: 500,
+                x: this.mob.x - 70, // Adjusted distance for smaller screen
+                duration: 400, // Slightly faster for smaller distance
                 ease: "Power1",
                 onComplete: () => {
                     this.player.play("attack");
@@ -181,11 +210,10 @@ class GameScene extends Phaser.Scene {
                         this.mobstat.hp -= this.playerStat.damage;
                         console.log("Mob HP:", this.mobstat.hp);
                         
-
                         this.tweens.add({
                             targets: this.player,
                             x: originalX,
-                            duration: 500,
+                            duration: 400,
                             ease: "Power1",
                             onComplete: () => {
                                 this.player.play("idle");
@@ -197,17 +225,74 @@ class GameScene extends Phaser.Scene {
                 }
             });
         }
+        if (action === "heal") {
+            const healAmount = 10;
+            const originalHP = this.playerStat.hp;
+            const maxHP = this.playerStat.maxHp || 100; // Assuming maxHp is defined, default to 100 if not
+
+            this.playerStat.hp = Math.min(originalHP + healAmount, maxHP);
+            this.playerStat.mp -= 20;
+            // Display heal text above the player
+            const healText = this.add.text(this.player.x, this.player.y - 50, `+${healAmount} HP`, 
+            { fontSize: '20px', fill: '#22ff22' })
+            .setOrigin(0.5);
+
+            this.tweens.add({
+            targets: healText,
+            y: healText.y - 30,
+            alpha: 0,
+            duration: 1500,
+            onComplete: () => healText.destroy()
+            });
+
+            this.updateStatsUI();
+            this.setTurn = 1; // End player's turn
+        }
+        if (action === "fireball") {
+            const originalX = this.player.x;
+
+            this.tweens.add({
+            targets: this.player,
+            x: this.mob.x - 70, // Adjusted distance for smaller screen
+            duration: 400, // Slightly faster for smaller distance
+            ease: "Power1",
+            onComplete: () => {
+                this.player.play("attack");
+
+                this.time.delayedCall(800, () => {
+                const fireballDamage = this.playerStat.damage * 1.2; // 1.2x player damage
+                this.mobstat.hp -= fireballDamage;
+                this.playerStat.player.mp -= 30; // Reduce player MP by 10
+                console.log("Mob HP:", this.mobstat.hp);
+                console.log("Player MP:", this.playerStat.player.mp);
+
+                this.tweens.add({
+                    targets: this.player,
+                    x: originalX,
+                    duration: 400,
+                    ease: "Power1",
+                    onComplete: () => {
+                    this.player.play("idle");
+                    this.updateStatsUI();
+                    this.setTurn = 1;
+                    }
+                });
+                });
+            }
+            });
+        }
     }
-    showDropTokenContainer(dropTokenJson,itemjson) {
+
+    showDropTokenContainer(dropTokenJson, itemjson) {
         // Create a container at the center of the screen
-        const container = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
+        const container = this.add.container(this.gameWidth / 2, this.gameHeight / 2);
     
         // Background for the container
-        const background = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.6);
+        const background = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.5);
         container.add(background);
     
         // Text content
-        const style = { fontSize: "20px", color: "#000", align: "center", wordWrap: { width: 300 } };
+        const style = { fontSize: "18px", color: "#000", align: "center", wordWrap: { width: 250 } };
         
         let displayText = "";
         if (dropTokenJson.success === true) {
@@ -220,7 +305,7 @@ class GameScene extends Phaser.Scene {
         container.add(text);
     
         // Create a close button under the reward container
-        const closeButton = this.add.text(0, 50, 'Close', { fontSize: '24px', fill: '#fff' })
+        const closeButton = this.add.text(0, 40, 'Close', { fontSize: '22px', fill: '#fff' })
             .setOrigin(0.5)
             .setInteractive()
             .on('pointerdown', () => {
@@ -231,29 +316,29 @@ class GameScene extends Phaser.Scene {
         container.setDepth(10); // Bring the container to the front
     }
     
-    // Method to close the drop token container and clean up the scene
+  
     closeDropTokenContainer(container) {
-        // Destroy the container and any child objects within it
+    
         container.destroy();
     
-        // Optionally, you could transition to another scene or end the game
-        this.scene.stop(); // Stop the current scene
+    
+        this.scene.stop();
         if (this.onFightEnd) {
-            this.onFightEnd(); // Notify that the fight is over
+            this.onFightEnd(); 
         }
     }
     
     createLoadingContainer() {
-        const container = this.add.container(this.cameras.main.centerX, this.cameras.main.centerY);
+        const container = this.add.container(this.gameWidth / 2, this.gameHeight / 2);
     
-        const background = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.6);
+        const background = this.add.image(0, 0, "mobinfo").setOrigin(0.5).setScale(0.5);
         container.add(background);
     
         const loadingText = this.add.text(0, 0, "Đang thống kê dữ liệu...", {
-            fontSize: "22px",
+            fontSize: "20px",
             color: "#000",
             align: "center",
-            wordWrap: { width: 300 },
+            wordWrap: { width: 250 },
         }).setOrigin(0.5);
         container.add(loadingText);
     
@@ -262,7 +347,6 @@ class GameScene extends Phaser.Scene {
         return container; // Trả về để tí nữa còn destroy
     }
     
-
     async MobTurn() {
         const gamestate = {
             playerStat: this.playerStat,
@@ -283,17 +367,17 @@ class GameScene extends Phaser.Scene {
                     const mobOriginalX = this.mob.x;
                     this.tweens.add({
                         targets: this.mob,
-                        x: this.player.x + 100,
-                        duration: 800,
+                        x: this.player.x + 70, // Adjusted distance for smaller screen
+                        duration: 600,
                         ease: "Power1",
                         onComplete: () => {
-                            this.time.delayedCall(900, () => {
+                            this.time.delayedCall(700, () => {
                                 this.playerStat.hp -= this.mobstat.dmg;
                                 console.log("Player HP:", this.playerStat.hp);
-    
+                                this.playerStat.mp += 10;
                                 if (this.playerStat.hp <= 0) {
                                     this.player.destroy();
-                                    this.endGame(); // ✅ End nếu player chết
+                                    this.endGame(); // End if player dies
                                 }
                                 this.updateStatsUI();
                             });
@@ -301,7 +385,7 @@ class GameScene extends Phaser.Scene {
                             this.tweens.add({
                                 targets: this.mob,
                                 x: mobOriginalX,
-                                duration: 800,
+                                duration: 600,
                                 ease: "Power1",
                                 onComplete: () => {
                                     this.mob.play("mobidle");
@@ -312,8 +396,21 @@ class GameScene extends Phaser.Scene {
                     break;
     
                 case 2: // Heal
-                    alert("Mob heal!");
-                    this.mobstat.hp += 10;
+                    // Using a text notification instead of alert for better UX on small screen
+                    const healText = this.add.text(this.mob.x, this.mob.y - 50, "Heal +10", 
+                        { fontSize: '20px', fill: '#22ff22' })
+                        .setOrigin(0.5);
+                    
+                    this.tweens.add({
+                        targets: healText,
+                        y: healText.y - 30,
+                        alpha: 0,
+                        duration: 1500,
+                        onComplete: () => healText.destroy()
+                    });
+                    
+                    this.mobstat.hp += 30;
+                    this.playerStat.mp += 10;
                     this.updateStatsUI();
                     break;
     
@@ -322,17 +419,13 @@ class GameScene extends Phaser.Scene {
                     
                     const dropTokenJson = await res.data.resFinal.DroptokenJson;
                     const itemjson = await res.data.resFinal.item;
-                    this.showDropTokenContainer(dropTokenJson,itemjson);
-                    this.mob.destroy();
-                     // Giả lập 2 giây delay để "thống kê dữ liệu"
 
+                    // Giả lập 2 giây delay để "thống kê dữ liệu"
                     this.time.delayedCall(2000, () => {
                         loadingContainer.destroy(); // Xóa container loading
                         this.showDropTokenContainer(dropTokenJson, itemjson); // Show container phần thưởng
                         this.mob.destroy();
                     });
-                    // Trì hoãn kết thúc game sau khi thông báo đã được đóng
-                   
                     break;
             }
         } catch (error) {
@@ -349,7 +442,6 @@ class GameScene extends Phaser.Scene {
             }
         }
     }
-    
 }
 
 export default GameScene;

@@ -6,6 +6,7 @@ import axios from "axios";
 import { useLocation } from 'react-router-dom';
 import CreateCharacter from "./CreateCharacter";
 import SellModal from "../Modal/SellModal";
+import { ToastContainer, toast } from 'react-toastify';
 const Profile = () => {
   const location = useLocation();
   const { userdata } = location.state || {}; // Safely accessing the passed userdata
@@ -18,7 +19,12 @@ const Profile = () => {
   const [selectedItem, setSelectedItem] = useState(null); // Track which item is currently selected
   const [sellmodalvisable, setSellmodalVisable] = useState(false); // Fixed typo in function name
   const [itemToSell, setItemToSell] = useState(null); // Add this state to track the item being sold
-  
+  const [itemsEquipped, setItemsEquipped] = useState({
+    weapon: null,
+    armor: null,
+    accessory: null,
+  });
+  const dropnotify = () => toast("Drop item success!");
   const getUserBalance = async () => {
     const userwallet = userdata.walletAddress;
     try {
@@ -64,7 +70,18 @@ const Profile = () => {
       if (response.status === 200) {
         const data = response.data;
         console.log("User inventory:", data.inventory); // Hiển thị thông báo từ server
-        setUserCharacter(data.character); // Cập nhật user character
+        console.log("User Equipment:", data.equippedItems); // Hiển thị thông báo từ server
+        setItemsEquipped(data.equippedItems); // Cập nhật itemsEquipped
+        const itemStats = calculateItemStats(data.equippedItems); // Tính toán stats từ items
+        const finalCharacter = {
+          ...data.character,
+          damage: (data.character?.damage || 0) + itemStats.dmg,
+          hp: (data.character?.hp || 0) + itemStats.hp,
+          mp: (data.character?.mp || 0) + itemStats.mp,
+          armor: (data.character?.armor || 0) + itemStats.armor,
+          agility: (data.character?.agility || 0) + itemStats.agility,
+        };
+        setUserCharacter(finalCharacter); // Cập nhật user character
         setInventory(data.inventory)
       } else {
         console.error(`Failed to fetch character: ${response.status} ${response.data}`);
@@ -73,7 +90,33 @@ const Profile = () => {
       console.error("Error fetching user character:", error.response ? error.response.data : error.message || error);
     }
   };
+  const calculateItemStats = (equippedItems) => {
+    if (!equippedItems || typeof equippedItems !== 'object') {
+      return { dmg: 0, hp: 0, mp: 0, armor: 0, agility: 0 };
+    }
 
+   
+    const itemsArray = Object.values(equippedItems).filter(Boolean);
+
+    return itemsArray.reduce(
+      (acc, item) => {
+        if (item.attributes && Array.isArray(item.attributes)) {
+          item.attributes.forEach((stat) => {
+            acc.dmg += stat.dmg || 0;
+            acc.hp += stat.hp || 0;
+            acc.mp += stat.mp || 0;
+            acc.armor += stat.armor || 0;
+            acc.agility += stat.agility || 0;
+          });
+        }
+        console.log("Item stats calculated:", acc);
+        return acc;
+   
+      },
+      { dmg: 0, hp: 0, mp: 0, armor: 0, agility: 0 }
+    );
+  };
+  
   // Toggle item selection
   const handleItemClick = (index) => {
     if (selectedItem === index) {
@@ -83,20 +126,68 @@ const Profile = () => {
       console.log(selectedItem)
     }
   };
+  
+  const setEquipItems =  async (item) =>{
+   
+    try {
+      const response = await axios.post("http://localhost:3000/api/update/items/equipped", {
+        itemId: item._id, // Assuming item has an _id property
+        UserID: userdata._id, // Assuming userdata has an _id property
+        slot: item.slot, // Assuming item has a 'slot' property (e.g., 'weapon', 'armor', 'accessory')
+      },{
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (response.status === 200) {
+        console.log("Item equipped successfully:", response.data);
+       
+      } else {
+        console.error(`Failed to equip item: ${response.status} ${response.data}`);
+      }
+    } catch (error) {
+      console.error("Error equipping item:", error.response ? error.response.data : error.message || error);
+    }
+  }
 
-  // Handle equipment action
+  
   const handleEquip = (item) => {
+    itemsEquipped[item.slot] = item; // Assuming item has a 'slot' property
     console.log("Equipping item:", item);
-    // Implement your equip logic here
-    setSelectedItem(null); // Close the stats view after action
+    setItemsEquipped({ ...itemsEquipped }); // Update state to trigger re-render
+    setEquipItems(item); // Call the function to update equipped items in the backend
+    getUserCharacter();
+    setSelectedItem(null); 
   };
 
+  const handleDelete = (item) => {
+    console.log("Deleting item:", item);  
+    try {
+      const res = axios.post("http://localhost:3000/api/delete/items", {
+        itemId: item._id, // Assuming item has an _id property
+        userId: userdata._id, // Assuming userdata has an _id property
+      },{
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (res) {
+        dropnotify();
+       
+        getUserCharacter(); // Refresh the character data to reflect changes
+      }
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    }
+  }
   // Handle sell action
   const handleSell = (item) => {
     console.log("Selling item:", item);
-    setItemToSell(item); // Store the item to sell
-    setSellmodalVisable(true); // Show the sell modal
-    setSelectedItem(null); // Close the stats view after action
+    setItemToSell(item); 
+    setSellmodalVisable(true); 
+    setSelectedItem(null); 
   };
 
   // Function to close sell modal
@@ -108,11 +199,13 @@ const Profile = () => {
   useEffect(() => {
     getUserBalance();
     getUserCharacter();
-  }, []); // Chỉ chạy một lần khi component được mount
+  }, []); 
 
   return (
+    
     <div style={style.mainGrid}>
       {/* Profile Card */}
+    
       <div style={{ ...style.card, ...style.profileCard }}>
         <img
           src="https://ts2.mm.bing.net/th?id=OIP.zjjf6-aJUXqQTv0Yzvz4QQHaHa&pid=15.1"
@@ -123,14 +216,52 @@ const Profile = () => {
         <div style={style.role}>Adventurer</div>
         <div style={style.balanceSection}>
           <button style={style.button}>View Balance</button>
-          <button style={style.secondaryButton}>{userbalance} MTK</button>
+          <button style={style.secondaryButton}>{userbalance}</button>
         </div>
-        <button style={style.button}>DISCORD LINK</button>
+   
       </div>
 
       <div style={{ ...style.card, marginTop: "20px" }}>
         <div style={style.sectionTitle}>🎒 Character Inventory</div>
-
+        {/* Item In Use Section */}
+        <div style={{ marginBottom: "15px" }}>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+          {["weapon", "armor", "accessory"].map((slot) => (
+            <div
+              key={slot}
+              style={{
+                ...style.inventoryItem,
+                minWidth: "80px",
+                minHeight: "80px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "2px dashed #1abc9c",
+                backgroundColor: "#23213a",
+              }}
+            >
+              <div style={{ fontWeight: "bold", color: "#1abc9c", marginBottom: "5px" }}>
+                {slot.charAt(0).toUpperCase() + slot.slice(1)}
+              </div>
+              {itemsEquipped[slot] ? (
+                <>
+                  <div style={{ fontSize: "13px", color: "#fff" }}>{itemsEquipped[slot].name}</div>
+                  {itemsEquipped[slot].attributes &&
+                    itemsEquipped[slot].attributes.map((stat, idx) => (
+                      <div key={idx} style={{ fontSize: "11px", color: "#aaa" }}>
+                        DMG: {stat.dmg} | HP: {stat.hp} | MP: {stat.mp} | Armor: {stat.armor} | Agility: {stat.agility}
+                      </div>
+                    ))}
+                </>
+              ) : (
+                <div style={{ color: "#888", fontSize: "12px" }}>Empty</div>
+              )}
+            </div>
+          ))}
+          </div>
+        </div>
+        <div style={style.labelText}>Backpack </div>
         {inventory && inventory.length > 0 ? (
           <div style={style.inventoryGrid}>
             {inventory.map((item, index) => (
@@ -143,7 +274,7 @@ const Profile = () => {
                 onClick={() => handleItemClick(index)}
               >
                 <div style={style.inventoryText}>{item.name}</div>
-
+                
                 {/* Stats and Actions display when selected */}
                 {selectedItem === index && (
                   <div style={style.statsDisplay}>
@@ -169,6 +300,15 @@ const Profile = () => {
                         }}
                       >
                         Equip
+                      </button>
+                      <button 
+                        style={style.actionButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(item);
+                        }}
+                      >
+                        Delete item
                       </button>
                       <button 
                         style={style.actionButton}
@@ -278,6 +418,18 @@ const Profile = () => {
             itemdata={itemToSell} 
           />
       )}
+       <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
 
       {/* Create Character Modal */}
       {IsModalVisible && (

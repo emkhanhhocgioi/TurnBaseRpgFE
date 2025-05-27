@@ -1,6 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+const LevelSelecter = ({ userCharacter, userdata }) => {
+    const location = useLocation();
 
-const LevelSelecter = () => {
+    const navigate = useNavigate();
     const levels = [
         { id: 1, name: '1', image: 'public/assets/UI/DoorLevel.jpg' },
         { id: 2, name: '2', image: 'public/assets/UI/DoorLevel.jpg' },
@@ -9,7 +13,18 @@ const LevelSelecter = () => {
         { id: 5, name: '5', image: 'public/assets/UI/DoorLevel.jpg' },
         { id: 6, name: '6', image: 'public/assets/UI/DoorLevel.jpg' },
     ];
-
+    useEffect(() => {
+        console.log('User Character:', userCharacter);
+        console.log('User Data:', userdata);
+    }, [userCharacter, userdata]);
+    const handleNavigate = (level) => {
+      // Ensure userCharacter is defined
+      if (userCharacter) {
+        navigate('/DungeonRun', { state: { userCharacter: userCharacter , userdata: userdata ,dlevel:level} });
+      } else {
+        console.error("userCharacter is undefined!");
+      }
+    };
     const styles = {
         gridContainer: {
             display: 'grid',
@@ -63,6 +78,7 @@ const LevelSelecter = () => {
                     onMouseOut={(e) => {
                         e.currentTarget.style.backgroundColor = '';
                     }}
+                    onClick={() =>{handleNavigate(level.id)}}
                 >
                     <div style={styles.imageContainer}>
                         <img

@@ -12,7 +12,8 @@ const WebsiteBalance = () => {
     const [isExchangeOfferModalOpen, setIsExchangeOfferModalOpen] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState("");
     const [exchangeOfferAmount, setExchangeOfferAmount] = useState("");
-    const contractaddress = '0x25a2CB25D863801E11f802e164744C89b3542041';
+    const [withdrawnOffer,setWithdrawnOffer] = useState([]);
+    const contractaddress = '0x131FC01D962Fee7675586cbffdb8Afb2a589A291';
 
     const transactions = [
         { id: 1, type: "Deposit", amount: "100", date: "2025-04-28" },
@@ -41,9 +42,11 @@ const WebsiteBalance = () => {
         if (userdata && userdata.walletAddress) {
             getUserBalance();
         }
+        getUserWithdrawnOffer();
     }, [userdata]);
 
-    async function WithDrawBDCToWalllet() {
+    
+    async function WithDrawBDCToWallet() {
         const CONTRACT_ADDRESS = contractaddress;
         const CONTRACT_ABI = [
             "function WithDrawFromWallet(address from, address to, uint256 amount) public",
@@ -54,13 +57,12 @@ const WebsiteBalance = () => {
         const walletAddress = userdata.walletAddress;
     
         if (!window.ethereum) {
-            alert("Cần cài đặt MetaMask hoặc ví web3 khác. Vui lòng cài đặt và kết nối ví của bạn.");
+            alert("Cần cài đặt MetaMask hoặc ví web3 khác.");
             return;
         }
     
         try {
             await window.ethereum.request({ method: "eth_requestAccounts" });
-    
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             const currentAddress = await signer.getAddress();
@@ -71,69 +73,55 @@ const WebsiteBalance = () => {
             }
     
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    
-            let balance;
-            try {
-                balance = await contract.balanceOf(walletAddress);
-                console.log(`Số dư hiện tại (raw): ${balance.toString()} token BIDI.`);
-            } catch (error) {
-                console.warn("Không thể kiểm tra số dư:", error);
-                return;
-            }
+            
+            // Get token balance and decimals
+            const [balance, decimals] = await Promise.all([
+                contract.balanceOf(walletAddress),
+                contract.decimals()
+            ]);
     
             if (balance === 0n) {
                 alert("Số dư của bạn là 0. Không thể thực hiện rút.");
                 return;
             }
     
-            const withdrawAmount = balance;
+            // Convert balance to whole tokens for the WithDrawFromWallet function
+            // The contract function will multiply by 10^decimals internally
+            const wholeTokens = balance / (10n ** BigInt(decimals));
+            
+            console.log(`Số dư: ${ethers.formatUnits(balance, decimals)} BIDI`);
+            console.log(`Chuyển: ${wholeTokens} tokens (không bao gồm decimals)`);
     
-            console.log("Địa chỉ ví nhận:", walletAddress);
-            console.log("Địa chỉ người gửi:", currentAddress);
-            console.log("Số lượng chuyển (raw):", withdrawAmount.toString());
-    
+            // Show pending message
             const pendingMsg = document.getElementById('pendingTxMessage');
             if (pendingMsg) pendingMsg.style.display = 'block';
     
+            // Execute the transaction
             const tx = await contract.WithDrawFromWallet(
                 walletAddress,
                 currentAddress,
-                withdrawAmount,
-             
+                wholeTokens
             );
     
-            console.log("Giao dịch đã gửi:", tx.hash);
-    
             const receipt = await tx.wait();
-            console.log("Giao dịch đã được xác nhận:", receipt);
-    
+            
+            // Hide pending message
             if (pendingMsg) pendingMsg.style.display = 'none';
-    
-            alert(`Chuyển token BIDI thành công! Số lượng (raw): ${withdrawAmount.toString()}`);
+            
+            alert(`Chuyển token BIDI thành công!`);
     
         } catch (error) {
             console.error("Giao dịch thất bại:", error);
-    
-            let errorMessage;
-            if (error.data) {
-                errorMessage = `Chi tiết lỗi: ${error.data}`;
-            } else if (error.error && error.error.message) {
-                errorMessage = error.error.message;
-            } else {
-                errorMessage = error?.reason || error?.message || "Lỗi không xác định";
-            }
-    
+            
+            // Simplified error handling
+            let errorMessage = error?.reason || error?.message || "Lỗi không xác định";
+            
             if (errorMessage.includes("Insufficient balance")) {
                 alert("Số dư không đủ để thực hiện giao dịch.");
-            } else if (errorMessage.includes("gas required exceeds allowance") || 
-                errorMessage.includes("insufficient funds")) {
-                alert("Giao dịch thất bại: Bạn không có đủ ETH để trả phí gas.");
-            } else if (errorMessage.includes("execution reverted")) {
-                alert("Giao dịch thất bại: Hợp đồng từ chối thực thi. Có thể do số dư token không đủ hoặc hạn chế của hợp đồng.");
-            } else if (errorMessage.includes("Cannot mix BigInt")) {
-                alert("Lỗi định dạng số khi chuyển đổi giá trị token.");
+            } else if (errorMessage.includes("gas required") || errorMessage.includes("insufficient funds")) {
+                alert("Không đủ ETH để trả phí gas.");
             } else {
-                alert("Chuyển token thất bại! Lý do: " + errorMessage);
+                alert("Chuyển token thất bại: " + errorMessage);
             }
     
             const pendingMsg = document.getElementById('pendingTxMessage');
@@ -141,6 +129,40 @@ const WebsiteBalance = () => {
         }
     }
     
+    const getUserWithdrawnOffer = async () => {
+        try {
+          const response = await axios.get('http://localhost:3000/api/get/token/offer');
+          console.log("📦 Raw response:", response);
+    
+          const rawData = response.data?.data;
+    
+          if (!Array.isArray(rawData)) {
+            console.error("❌ Invalid format: response.data.data is not an array", rawData);
+            return;
+          }
+    
+          const formattedItems = rawData.map((item, index) => {
+            if (!Array.isArray(item) || item.length < 5) {
+              console.warn(`⚠️ Item at index ${index} is malformed:`, item);
+              return null;
+            }
+          
+            return {
+              offerid: item[0],
+              toWallet: item[1],
+              fromWallet: item[2],
+              amount: `${item[3]}`,
+              isApproved: item[4],
+            };
+          })
+          console.log(formattedItems)
+          
+    
+          setWithdrawnOffer(formattedItems);
+        } catch (error) {
+          console.error("🚨 Failed to fetch exchange offers:", error);
+        }
+      };
 
 
     
@@ -160,21 +182,6 @@ async function connectWallet() {
     }
 }
     
-    // Hàm kết nối ví
-    async function connectWallet() {
-        if (window.ethereum) {
-            try {
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                localStorage.setItem('metamask', accounts[0]);
-                alert('Kết nối ví thành công!');
-            } catch (error) {
-                console.error("Lỗi kết nối ví:", error);
-                alert("Không thể kết nối ví.");
-            }
-        } else {
-            alert("Hãy cài đặt Metamask!");
-        }
-    }
 
     // Hàm mua token
     async function buyToken(transfervalue) {
@@ -202,11 +209,11 @@ async function connectWallet() {
         }
 
         try {
-            // Nếu ví chưa kết nối, yêu cầu kết nối
+         
             if (!walletAddress) {
-                await connectWallet(); // Kết nối ví nếu chưa có tài khoản
+                await connectWallet(); 
                 setIsPendingTx(false);
-                return; // Dừng nếu kết nối ví thất bại
+                return;
             }
 
             const provider = new ethers.BrowserProvider(window.ethereum);
@@ -219,9 +226,9 @@ async function connectWallet() {
 
             // Gửi giao dịch mua token
             const tx = await contract.buyMoreTokken(
-                BigInt(transfervalue), // Số lượng token muốn mua
-                walletAddress,          // Địa chỉ ví của người mua
-                { value: totalPrice }   // Số Ether cần trả
+                BigInt(transfervalue), 
+                walletAddress,         
+                { value: totalPrice }   
             );
 
             await tx.wait(); // Chờ giao dịch hoàn thành
@@ -237,7 +244,7 @@ async function connectWallet() {
     }
 
     async function CreateWithdrawOffer () {
-        const amount = 1;
+       
         const CONTRACT_ADDRESS = contractaddress;
         const CONTRACT_ABI = [
             "function CreateExchangeOffer(uint256 amount,address from) public",
@@ -256,7 +263,7 @@ async function connectWallet() {
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
             
     
-            const tx = await contract.CreateExchangeOffer(amount, walletAddress);
+            const tx = await contract.CreateExchangeOffer(exchangeOfferAmount, walletAddress);
             await tx.wait();
     
             alert("Tạo yêu cầu rút token thành công!");
@@ -312,11 +319,13 @@ async function connectWallet() {
                 <div style={styles.transactionList}>
                     <h3 style={styles.transactionTitle}>Transaction History</h3>
                     <ul style={styles.transactionItems}>
-                        {transactions.map((tx) => (
-                            <li key={tx.id} style={styles.transactionItem}>
-                                <span>{tx.type}</span>
-                                <span>{tx.amount} Tokens</span>
-                                <span>{tx.date}</span>
+                    {withdrawnOffer
+                        .filter((tx) => userdata.walletAddress === tx.fromWallet)
+                        .map((tx) => (
+                            <li key={tx.offerid} style={styles.transactionItem}>
+                            <span>{tx.toWallet}</span>
+                            <span>{tx.fromWallet} Tokens</span>
+                            <span>{tx.amount}</span>
                             </li>
                         ))}
                     </ul>
@@ -388,7 +397,7 @@ async function connectWallet() {
                         <div style={styles.modalButtons}>
                             <button
                                 style={styles.confirmButton}
-                                onClick={WithDrawBDCToWalllet}
+                                onClick={WithDrawBDCToWallet}
                             >
                                 Confirm
                             </button>

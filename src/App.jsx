@@ -13,6 +13,7 @@ import SingInScreen from "./Auth/Login";
 import SingUpScreen from "./Auth/Register";
 import PlayerHub from "./GameSceen/PlayerHub";
 import Admin from "./admin/admin";
+import itemCollections from "./Hubcomponent/ItemRoll";
 const App = () => {
 	return (
 		<div>
@@ -25,6 +26,7 @@ const App = () => {
 					<Route path="/signup" exact element={<SingUpScreen/>} />
 					<Route path="/dashboard" exact element={<PlayerHub />} />
 					<Route path="/DungeonRun" exact element={<DungeonRun />} />
+					<Route path="/itemCollections" exact element={<itemCollections />} />
 				</Routes>
 			</Router>
 		</div>

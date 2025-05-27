@@ -1,72 +1,118 @@
 import React, { useEffect, useState } from 'react';
 import Profile from '../Hubcomponent/Profile';
 import MarketPlace from '../Hubcomponent/MarketPlace';
-import bgImage from '/public/assets/hubui/mainhubbackground.jpg';
 import WebsiteBalance from '../Hubcomponent/WebsiteBalance';
 import LevelSelecter from './LevelSelecter';
-import { useLocation } from 'react-router-dom';
-import { useNavigate } from "react-router-dom";
+import ItemRoll from '../Hubcomponent/ItemRoll';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+
+// Import your background image
+// Consider moving this to an assets folder that's properly handled by your bundler
+const bgImagePath = '/assets/hubui/mainhubbackground.jpg';
+
 export default function PlayerHub() {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
   const [page, setPage] = useState('profile');
   const location = useLocation();
-  const { userdata } = location.state || {}; // Safely accessing the passed userdata
+  const { userdata } = location.state || {};
+  const [userCharacter, setUserCharacter] = useState(null);
+  
+  // Redirect if no userdata is found
+  useEffect(() => {
+    if (!userdata) {
+      console.error("No user data available");
+      navigate('/login', { replace: true }); // Redirect to login if no user data
+    }
+  }, [userdata, navigate]);
 
-
-
-  const [userCharacter, setUserCharacter] = useState(); // lưu dữ liệu người dùng
   const getUserCharacter = async () => {
     try {
-        const token = localStorage.getItem("token"); // Lấy token từ localStorage
-        if (!token) {
-            console.error("No token found in localStorage.");
-            return;
-        }else{
-          console.log("Token:", token); // Kiểm tra token
-        }
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        console.error("No token found in localStorage.");
+        navigate('/login', { replace: true });
+        return;
+      }
 
-        const Userid = userdata?._id; // Lấy UserID từ userdata (thêm kiểm tra nếu userdata không tồn tại)
-        if (!Userid) {
-            console.error("UserID is missing.");
-            return;
-          
-        }
-        console.log("UserID:", Userid); // Kiểm tra UserID  
+      if (!userdata?._id) {
+        console.error("UserID is missing.");
+        return;
+      }
 
-        const response = await axios.post(
-            "http://localhost:3000/api/get/user/character", 
-            { UserID: Userid },
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                },
-            }
-        );
-
-        if (response.status === 200) {
-            const data = response.data;
-            console.log("User character:", data); // Hiển thị thông báo từ server
-            setUserCharacter(data); // Cập nhật user character
-        } else {
-            console.error(`Failed to fetch character: ${response.status} ${response.data}`);
+      const response = await axios.post(
+        "http://localhost:3000/api/get/user/character", 
+        { UserID: userdata._id },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
+      );
+
+      if (response.status === 200) {
+        const data = response.data;
+        
+        // Calculate stats from items
+        const itemStats = calculateItemStats(data.equippedItems);
+        
+        
+        // Merge with character base stats
+        const finalCharacter = {
+          ...data.character,
+          damage: (data.character?.damage || 0) + itemStats.dmg,
+          hp: (data.character?.hp || 0) + itemStats.hp,
+          mp: (data.character?.mp || 0) + itemStats.mp,
+          armor: (data.character?.armor || 0) + itemStats.armor,
+          agility: (data.character?.agility || 0) + itemStats.agility,
+        };
+        
+        setUserCharacter(finalCharacter);
+      } else {
+        console.error(`Failed to fetch character: ${response.status} ${response.data}`);
+      }
     } catch (error) {
-        console.error("Error fetching user character:", error.response ? error.response.data : error.message || error);
+      console.error("Error fetching user character:", 
+        error.response ? error.response.data : error.message || error);
     }
-};
-const handleNavigate = () => {
-  // Ensure userCharacter is defined
-  if (userCharacter) {
-    navigate('/DungeonRun', { state: { userCharacter: userCharacter , userdata: userdata } });
-  } else {
-    console.error("userCharacter is undefined!");
-  }
-};
-useEffect(() => {
-    getUserCharacter(); // Gọi hàm khi component được mount
-}, []); // Chỉ gọi một lần khi component được mount
+  };
+
+ 
+  const calculateItemStats = (equippedItems) => {
+    if (!equippedItems || typeof equippedItems !== 'object') {
+      return { dmg: 0, hp: 0, mp: 0, armor: 0, agility: 0 };
+    }
+
+   
+    const itemsArray = Object.values(equippedItems).filter(Boolean);
+
+    return itemsArray.reduce(
+      (acc, item) => {
+        if (item.attributes && Array.isArray(item.attributes)) {
+          item.attributes.forEach((stat) => {
+            acc.dmg += stat.dmg || 0;
+            acc.hp += stat.hp || 0;
+            acc.mp += stat.mp || 0;
+            acc.armor += stat.armor || 0;
+            acc.agility += stat.agility || 0;
+          });
+        }
+        console.log("Item stats calculated:", acc);
+        return acc;
+   
+      },
+      { dmg: 0, hp: 0, mp: 0, armor: 0, agility: 0 }
+    );
+  };
+
+  // Call getUserCharacter when userdata changes
+  useEffect(() => {
+    if (userdata?._id) {
+      getUserCharacter();
+    }
+  }, [userdata]);
 
   const style = {
     layoutContainer: {
@@ -131,7 +177,7 @@ useEffect(() => {
       padding: '20px',
       backgroundColor: '#ffffff',
       color: '#000',
-      backgroundImage: `url(${bgImage})`,
+      backgroundImage: `url(${bgImagePath})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       position: 'relative',
@@ -139,52 +185,100 @@ useEffect(() => {
     },
   };
 
+  // Show loading state when waiting for user data
+  if (!userdata) {
+    return <div style={{ ...style.layoutContainer, justifyContent: 'center', alignItems: 'center' }}>
+      Loading user data...
+    </div>;
+  }
+
   return (
     <div style={style.layoutContainer}>
       <div style={style.leftSidebar}>
         <div style={style.sidebarSection}>
           <p style={style.sectionTitle}>MY ACCOUNT</p>
-          <button onClick={() => setPage('profile')} style={{ ...style.sidebarBtn, ...(page === 'profile' && style.activeBtn) }}>Profile</button>
-          <button onClick={() => setPage('level')} style={style.sidebarBtn}>
+          <button 
+            onClick={() => setPage('profile')} 
+            style={{ ...style.sidebarBtn, ...(page === 'profile' && style.activeBtn) }}
+          >
+            Profile
+          </button>
+          <button 
+            onClick={() => setPage('level')} 
+            style={{ ...style.sidebarBtn, ...(page === 'level' && style.activeBtn) }}
+          >
             Play RavenQuest
           </button>
-
           <button style={style.sidebarBtn}>My Referrals</button>
         </div>
 
         <div style={style.sidebarSection}>
-          <p style={style.sectionTitle}>THE MARKET PLACE </p>
-          <button style={{ ...style.sidebarBtn, ...style.highlightedBtn }}>
+          <p style={style.sectionTitle}>THE MARKET PLACE</p>
+          <button style={{ ...style.sidebarBtn, ...style.highlightedBtn }}
+           onClick={() => setPage('LootChest')} >
             <span>🎁 Lucky Chests</span>
             <span style={style.newTag}>NEW</span>
           </button>
-          <button onClick={() => setPage('marketplace')} style={{ ...style.sidebarBtn, ...(page === 'marketplace' && style.activeBtn) }}>MTK MARKETPLACE</button>
+          <button 
+            onClick={() => setPage('marketplace')} 
+            style={{ ...style.sidebarBtn, ...(page === 'marketplace' && style.activeBtn) }}
+          >
+            MTK MARKETPLACE
+          </button>
         </div>
 
         <div style={style.sidebarSection}>
           <p style={style.sectionTitle}>$QUEST BALANCE</p>
-          <button onClick={() => setPage('websitebalance')} style={style.sidebarBtn}>Website Balance</button>
+          <button 
+            onClick={() => setPage('websitebalance')} 
+            style={{ ...style.sidebarBtn, ...(page === 'websitebalance' && style.activeBtn) }}
+          >
+            Website Balance
+          </button>
           <button style={style.sidebarBtn}>Passport Balance</button>
         </div>
 
-        <div style={style.sidebarSection}>
-          <p style={style.sectionTitle}>COLLECTION</p>
-          <button style={style.sidebarBtn}>Ascended Collection</button>
-          <button style={style.sidebarBtn}>My Munk</button>
-          <button style={style.sidebarBtn}>Munk Collection</button>
-          <button style={style.sidebarBtn}>Ascended History</button>
-        </div>
+       
       </div>
 
       <div style={style.mainHub}>
-      {page === 'level' && userdata && (
-      <LevelSelecter style={{ marginTop: "10%" }} />
-      )}
+        
+        {page === 'level' && userCharacter ? (
+          <LevelSelecter 
+            style={{ marginTop: "10%" }} 
+            userCharacter={userCharacter} 
+            userdata={userdata} 
+          />
+        ) : page === 'level' && (
+          <div>Loading character data...</div>
+        )}
 
-      {page === 'profile' && userdata && <Profile userdata={userdata} />}
-      {page === 'marketplace' && userdata && <MarketPlace userdata={userdata} />}
-      {page === 'websitebalance' && userdata && <WebsiteBalance userdata={userdata}/>}
-
+        {page === 'profile' && (
+          <Profile 
+            userdata={userdata} 
+            userCharacter={userCharacter} 
+          />
+        )}
+        
+        {page === 'marketplace' && (
+          <MarketPlace 
+            userdata={userdata} 
+            userCharacter={userCharacter} 
+          />
+        )}
+        
+        {page === 'websitebalance' && (
+          <WebsiteBalance 
+            userdata={userdata} 
+            userCharacter={userCharacter} 
+          />
+        )}
+        {page === 'LootChest' && (
+          <ItemRoll 
+            userdata={userdata} 
+            userCharacter={userCharacter} 
+          />
+        )}
       </div>
     </div>
   );

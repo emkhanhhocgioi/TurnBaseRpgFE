@@ -7,8 +7,8 @@ const Game = ({ mobdata ,playerdata,userdata,onFightEnd}) => {  // ✅ Destructu
 
     useEffect(() => {
         const config = {
-            type: Phaser.WEBGL,
-            width: "100%",
+            type: Phaser.AUTO,  // 👈 Cho phép fallback
+            width: 600,
             height: 800,
             parent: gameContainer.current,
             physics: {
@@ -18,8 +18,9 @@ const Game = ({ mobdata ,playerdata,userdata,onFightEnd}) => {  // ✅ Destructu
                     debug: false,
                 },
             },
-            scene: [new GameScene({ mobdata,playerdata ,userdata,onFightEnd})],  // ✅ Pass mobdata to scene
+            scene: [new GameScene({ mobdata, playerdata, userdata, onFightEnd })],
         };
+        
 
         const game = new Phaser.Game(config);
 
